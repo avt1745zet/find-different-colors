@@ -69,7 +69,7 @@ const Game = () => {
       content = (
         <Fragment>
           <Timer
-            time={1}
+            time={60}
             onTimeEnd={()=>{
               setGameState(GameState.result);
             }}
@@ -333,8 +333,14 @@ ColorFinder.propTypes = {
 };
 
 const Result = (props) => {
+  const [buttonEnabled, setButtonEnabled] = useState(false);
   const {reachedLevel,
     onGameRestartButtonClick, onBackToMenuButtonClick} = props;
+  useEffect(() => {
+    setTimeout(() => {
+      setButtonEnabled(true);
+    }, 1500);
+  });
   const handleGameRestartButtonClick = () => {
     onGameRestartButtonClick();
   };
@@ -358,6 +364,7 @@ const Result = (props) => {
       <Button
         variant='contained'
         color='primary'
+        disabled={!buttonEnabled}
         onClick={handleGameRestartButtonClick}
       >
         Game Restart
@@ -366,6 +373,7 @@ const Result = (props) => {
       <Button
         variant='contained'
         color='secondary'
+        disabled={!buttonEnabled}
         onClick={handleBackToMenuButtonClick}
       >
         Back To Menu
