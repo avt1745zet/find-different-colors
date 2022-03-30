@@ -6,10 +6,15 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
+    assetModuleFilename: 'assets/[hash][ext][query]',
   },
-  plugins: [new HtmlWebpackPlugin({
-    template: './src/index.html',
-  })],
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './src/index.html',
+      title: 'Find Different Colors',
+      favicon: './res/favicon.png',
+    }),
+  ],
   module: {
     rules: [
       {
@@ -21,6 +26,10 @@ module.exports = {
             presets: ['@babel/preset-env', '@babel/preset-react'],
           },
         },
+      },
+      {
+        test: /\.(png|svg|jpg|jpeg|gif)$/i,
+        type: 'asset/resource',
       },
     ],
   },
