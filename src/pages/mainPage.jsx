@@ -250,21 +250,27 @@ const ColorFinder = (props) => {
   const questionColor = getRandomColor();
 
   const generateAnswerColor = () => {
-    const getDiffrence = () => {
-      const randomSign = Math.random() - 0.5 < 0? -1: 1;
-      const diffrence = randomSign * (Math.random() * 255 / (level / 2));
-      return diffrence;
-    };
+    const randomSign = Math.random() - 0.5 < 0? -1: 1;
+    const FINAL_LEVEL = 60;
+    const MAX_DIFF = 40;
+    const diffrence = randomSign * Math.max(5,
+        MAX_DIFF / FINAL_LEVEL * (FINAL_LEVEL - level));
+
+    const rWeight = Math.random();
+    const gWeight = Math.random();
+    const bWeight = Math.random();
+    const weightSum = rWeight + gWeight + bWeight;
+
     return {
-      r: questionColor.r + getDiffrence(),
-      g: questionColor.g + getDiffrence(),
-      b: questionColor.b + getDiffrence(),
+      r: questionColor.r + rWeight / weightSum * diffrence,
+      g: questionColor.g + gWeight / weightSum * diffrence,
+      b: questionColor.b + bWeight / weightSum * diffrence,
     };
   };
 
   const answerColor = generateAnswerColor();
 
-  const handleBlockClick = ( position ) => {
+  const handleBlockClick = (position) => {
     if (position[0] === answerPosition[0] &&
         position[1] === answerPosition[1]) {
       const newLevel = level + 1;
@@ -276,15 +282,15 @@ const ColorFinder = (props) => {
 
   const rows = [];
 
-  for ( let i = 0; i < size; i++) {
+  for (let i = 0; i < size; i++) {
     const clomns = [];
-    for ( let j = 0; j < size; j++) {
+    for (let j = 0; j < size; j++) {
       const color = i === answerPosition[0] && j === answerPosition[1]?
       answerColor: questionColor;
       const block = (
         <Box
           onClick={()=>handleBlockClick([i, j])}
-          key={ j.toString()}
+          key={j.toString()}
           sx={{
             height: '100%',
             width: `${100/size}%`,
@@ -320,7 +326,7 @@ const ColorFinder = (props) => {
         alignItems: 'center',
       }}
     >
-      <Box ref={squareRef} >
+      <Box ref={squareRef}>
         {rows}
       </Box>
     </Box>
