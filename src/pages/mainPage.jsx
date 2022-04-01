@@ -248,7 +248,7 @@ const ColorFinder = (props) => {
 
   const generateLevelInfo = (level) => {
     const getSize = () => {
-      return Math.floor((level - 1) / 5) + 2;
+      return Math.floor((level - 1) / 10) + 2;
     };
     const getRandomPosition = (size) => {
       return [
