@@ -1,7 +1,7 @@
 import React, {Fragment, useEffect, useRef, useState} from 'react';
 import PropTypes from 'prop-types';
 import {Box} from '@mui/system';
-import {Button, Divider, Typography} from '@mui/material';
+import {Button, Divider, Stack, Typography} from '@mui/material';
 
 const MainPage = () => {
   return (
@@ -22,7 +22,7 @@ const MainPage = () => {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          height: '100%',
+          flexGrow: '1',
         }}
       >
         <Game/>
@@ -43,6 +43,7 @@ const GameState = {
 const Game = () => {
   const [gameState, setGameState] = useState(GameState.menu);
   const [currentLevel, setCurrentLevel] = useState(1);
+  const [gameDetailData, setGameDetailData] = useState(null);
   let content;
   switch (gameState) {
     case GameState.menu:
@@ -51,6 +52,10 @@ const Game = () => {
           onStartButtonClick={()=>{
             setGameState(GameState.playing);
             setCurrentLevel(1);
+            setGameDetailData({
+              finalLevel: 1,
+              levelRecordList: [],
+            });
           }}
           onHowToPlayButtonClick={()=>{
             setGameState(GameState.introduce);
@@ -76,8 +81,35 @@ const Game = () => {
           />
           <ColorFinder
             startLevel={1}
-            onLevelUpdate={(newLevel)=>{
-              setCurrentLevel(newLevel);
+            onLevelUpdate={(newLevelInfo) => {
+              setCurrentLevel(newLevelInfo.level);
+              const newData = {
+                finalLevel: newLevelInfo.level,
+                levelRecordList: [...gameDetailData.levelRecordList, {
+                  level: newLevelInfo.level,
+                  questionColor: newLevelInfo.questionColor,
+                  answerColor: newLevelInfo.answerColor,
+                  incorrectCount: 0,
+                }],
+              };
+              setGameDetailData(newData);
+            }}
+            onLevelComplete={(levelRecordData) => {
+              const newData = {
+                ...gameDetailData,
+              };
+              newData.levelRecordList[
+                  newData.levelRecordList.length-1].spendTime =
+                  levelRecordData.spendTime;
+              setGameDetailData(newData);
+            }}
+            onIncorrectColorClick={() => {
+              const newData = {
+                ...gameDetailData,
+              };
+              newData.levelRecordList[
+                  newData.levelRecordList.length-1].incorrectCount++;
+              setGameDetailData(newData);
             }}
           />
           <Typography variant='h5' align='center'>
@@ -89,12 +121,17 @@ const Game = () => {
     case GameState.result:
       content = (
         <Result
+          detailData={gameDetailData}
           reachedLevel={currentLevel}
-          onGameRestartButtonClick={()=>{
+          onGameRestartButtonClick={() => {
             setGameState(GameState.playing);
             setCurrentLevel(1);
+            setGameDetailData({
+              finalLevel: 1,
+              levelRecordList: [],
+            });
           }}
-          onBackToMenuButtonClick={()=>{
+          onBackToMenuButtonClick={() => {
             setGameState(GameState.menu);
           }}
         />
@@ -177,8 +214,8 @@ const Timer = (props) => {
   const {time, onTimeEnd} = props;
   const [remainTime, setRemainTime] = useState(time);
 
-  useEffect(()=>{
-    setTimeout(()=>{
+  useEffect(() => {
+    setTimeout(() => {
       countDown();
     }, 1000);
   }, [remainTime]);
@@ -204,32 +241,76 @@ Timer.propTypes = {
 };
 
 const ColorFinder = (props) => {
-  const {startLevel, onLevelUpdate} = props;
+  const {startLevel, onLevelUpdate,
+    onLevelComplete, onIncorrectColorClick} = props;
 
   const [level, setLevel] = useState(startLevel);
 
-  const getSize = () => {
-    return Math.floor((level - 1) / 5) + 2;
+  const generateLevelInfo = (level) => {
+    const getSize = () => {
+      return Math.floor((level - 1) / 5) + 2;
+    };
+    const getRandomPosition = (size) => {
+      return [
+        Math.floor(Math.random() * size),
+        Math.floor(Math.random() * size),
+      ];
+    };
+    const getRandomColor = () => {
+      return {
+        r: Math.random() * 255,
+        g: Math.random() * 255,
+        b: Math.random() * 255,
+      };
+    };
+    const generateAnswerColor = (questionColor) => {
+      const randomSign = Math.random() - 0.5 < 0? -1: 1;
+      const FINAL_LEVEL = 60;
+      const MAX_DIFF = 40;
+      const diffrence = randomSign * Math.max(5,
+          MAX_DIFF / FINAL_LEVEL * (FINAL_LEVEL - level));
+
+      const rWeight = Math.random();
+      const gWeight = Math.random();
+      const bWeight = Math.random();
+      const weightSum = rWeight + gWeight + bWeight;
+
+      return {
+        r: questionColor.r + rWeight / weightSum * diffrence,
+        g: questionColor.g + gWeight / weightSum * diffrence,
+        b: questionColor.b + bWeight / weightSum * diffrence,
+      };
+    };
+    const size = getSize();
+    const questionColor = getRandomColor();
+    return {
+      size: size,
+      questionColor: questionColor,
+      answerColor: generateAnswerColor(questionColor),
+      answerPosition: getRandomPosition(size),
+    };
   };
-  const size = getSize();
-  const getRandomPosition = () => {
-    return [
-      Math.floor(Math.random() * size),
-      Math.floor(Math.random() * size),
-    ];
-  };
-  const [answerPosition, setAnswerPosition] = useState(getRandomPosition());
+  const [levelInfo, setLevelInfo] = useState(generateLevelInfo(startLevel));
 
   const gameFrameRef = useRef(null);
   const squareRef = useRef(null);
 
-  useEffect(()=>{
+  useEffect(() => {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
     };
   }, []);
+
+  useEffect(() => {
+    onLevelUpdate({
+      level: level,
+      questionColor: levelInfo.questionColor,
+      answerColor: levelInfo.answerColor,
+    });
+    setTime(new Date());
+  }, [level]);
 
   const handleResize = () => {
     const size = Math.min(
@@ -239,61 +320,38 @@ const ColorFinder = (props) => {
     squareRef.current.style.height = size + 'px';
   };
 
-  const getRandomColor = () => {
-    return {
-      r: Math.random() * 255,
-      g: Math.random() * 255,
-      b: Math.random() * 255,
-    };
-  };
-
-  const questionColor = getRandomColor();
-
-  const generateAnswerColor = () => {
-    const randomSign = Math.random() - 0.5 < 0? -1: 1;
-    const FINAL_LEVEL = 60;
-    const MAX_DIFF = 40;
-    const diffrence = randomSign * Math.max(5,
-        MAX_DIFF / FINAL_LEVEL * (FINAL_LEVEL - level));
-
-    const rWeight = Math.random();
-    const gWeight = Math.random();
-    const bWeight = Math.random();
-    const weightSum = rWeight + gWeight + bWeight;
-
-    return {
-      r: questionColor.r + rWeight / weightSum * diffrence,
-      g: questionColor.g + gWeight / weightSum * diffrence,
-      b: questionColor.b + bWeight / weightSum * diffrence,
-    };
-  };
-
-  const answerColor = generateAnswerColor();
+  const [time, setTime] = useState(new Date());
 
   const handleBlockClick = (position) => {
-    if (position[0] === answerPosition[0] &&
-        position[1] === answerPosition[1]) {
-      const newLevel = level + 1;
-      setLevel(newLevel);
-      onLevelUpdate(newLevel);
-      setAnswerPosition(getRandomPosition());
+    if (position[0] === levelInfo.answerPosition[0] &&
+        position[1] === levelInfo.answerPosition[1]) {
+      const currentTime = new Date();
+      onLevelComplete({
+        spendTime: (currentTime - time) / 1000,
+      });
+      const nextLevel = level + 1;
+      setLevel(nextLevel);
+      setLevelInfo(generateLevelInfo(nextLevel));
+    } else {
+      onIncorrectColorClick();
     }
   };
 
   const rows = [];
 
-  for (let i = 0; i < size; i++) {
+  for (let i = 0; i < levelInfo.size; i++) {
     const clomns = [];
-    for (let j = 0; j < size; j++) {
-      const color = i === answerPosition[0] && j === answerPosition[1]?
-      answerColor: questionColor;
+    for (let j = 0; j < levelInfo.size; j++) {
+      const color =
+      (i === levelInfo.answerPosition[0] && j === levelInfo.answerPosition[1])?
+      levelInfo.answerColor: levelInfo.questionColor;
       const block = (
         <Box
-          onClick={()=>handleBlockClick([i, j])}
+          onClick={() => handleBlockClick([i, j])}
           key={j.toString()}
           sx={{
             height: '100%',
-            width: `${100/size}%`,
+            width: `${100 / levelInfo.size}%`,
             backgroundColor: `rgb(
             ${color.r},
             ${color.g},
@@ -309,7 +367,7 @@ const ColorFinder = (props) => {
     rows.push(
         <Box
           key={i.toString()}
-          sx={{height: `${100/size}%`}}
+          sx={{height: `${100 / levelInfo.size}%`}}
         >
           {clomns}
         </Box>,
@@ -336,37 +394,148 @@ const ColorFinder = (props) => {
 ColorFinder.propTypes = {
   startLevel: PropTypes.number.isRequired,
   onLevelUpdate: PropTypes.func,
+  onLevelComplete: PropTypes.func,
+  onIncorrectColorClick: PropTypes.func,
 };
 
 const Result = (props) => {
   const [buttonEnabled, setButtonEnabled] = useState(false);
-  const {reachedLevel,
+  const [showDetail, setShowDetail] = useState(false);
+  const {reachedLevel, detailData,
     onGameRestartButtonClick, onBackToMenuButtonClick} = props;
   useEffect(() => {
     setTimeout(() => {
       setButtonEnabled(true);
     }, 1500);
   });
+  const handleShowGameDetailButtonClick = () => {
+    setShowDetail(true);
+  };
   const handleGameRestartButtonClick = () => {
     onGameRestartButtonClick();
   };
   const handleBackToMenuButtonClick = () => {
     onBackToMenuButtonClick();
   };
+  const gameDetails = detailData.levelRecordList.map((levelRecord, index)=>{
+    return (
+      <Fragment key={index}>
+        <Box key={index}>
+          <Typography variant='h4' align='center'>
+            Level {levelRecord.level}
+          </Typography>
+          <Stack
+            direction='row'
+            justifyContent='space-between'
+            alignItems='center'
+          >
+            <Box>
+              <Box
+                sx={{
+                  display: 'inline-block',
+                }}
+              >
+                <Box>
+                  <Typography>
+                    Q
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    display: 'inline-block',
+                    height: '10rem',
+                    width: '10rem',
+                    backgroundColor: `rgb(
+                    ${levelRecord.questionColor.r},
+                    ${levelRecord.questionColor.g},
+                    ${levelRecord.questionColor.b})`,
+                  }}
+                >
+                </Box>
+              </Box>
+              <Box
+                sx={{
+                  display: 'inline-block',
+                }}
+              >
+                <Typography>
+                  A
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'inline-block',
+                    height: '10rem',
+                    width: '10rem',
+                    backgroundColor: `rgb(
+                    ${levelRecord.answerColor.r},
+                    ${levelRecord.answerColor.g},
+                    ${levelRecord.answerColor.b})`,
+                  }}
+                >
+                </Box>
+              </Box>
+            </Box>
+            <Stack justifyContent='space-around'>
+              <Typography>
+                {levelRecord.spendTime?
+                  `spend time: ${levelRecord.spendTime} sec`:
+                  'Not completed yet'}
+              </Typography>
+              <Divider/>
+              <Typography>
+                Incorrect times: {levelRecord.incorrectCount}
+              </Typography>
+            </Stack>
+          </Stack>
+        </Box>
+        <Divider/>
+      </Fragment>
+    );
+  });
   return (
     <Fragment>
-      <Typography variant='h2' align='center'>
-        WOW!
-      </Typography>
-      <Typography
-        variant='h5'
-        align='center'
+      <Box
         sx={{
-          marginBlock: '0.5rem',
+          display: showDetail? 'none': 'block',
         }}
       >
+        <Typography variant='h2' align='center'>
+        WOW!
+        </Typography>
+        <Typography
+          variant='h5'
+          align='center'
+          sx={{
+            marginBlock: '0.5rem',
+          }}
+        >
         You reached level: {reachedLevel}
-      </Typography>
+        </Typography>
+      </Box>
+      <Stack
+        sx={{
+          display: showDetail? 'flex': 'none',
+          padding: '10px',
+          backgroundColor: 'rgba(0,0,0,0.3)',
+          flexGrow: 1,
+          flexBasis: 0,
+          overflowY: 'auto',
+        }}
+      >
+        {gameDetails}
+      </Stack>
+      <Button
+        variant='contained'
+        color='info'
+        disabled={!buttonEnabled}
+        onClick={handleShowGameDetailButtonClick}
+        sx={{
+          display: showDetail? 'none': 'flex',
+        }}
+      >
+        Show Game Detail
+      </Button>
+      <Divider/>
       <Button
         variant='contained'
         color='primary'
@@ -392,4 +561,5 @@ Result.propTypes = {
   reachedLevel: PropTypes.number.isRequired,
   onGameRestartButtonClick: PropTypes.func,
   onBackToMenuButtonClick: PropTypes.func,
+  detailData: PropTypes.object.isRequired,
 };
