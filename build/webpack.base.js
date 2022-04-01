@@ -4,9 +4,10 @@ const path = require('path');
 module.exports = {
   entry: './src/index.jsx',
   output: {
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, '../dist'),
     filename: 'bundle.js',
     assetModuleFilename: 'assets/[hash][ext][query]',
+    clean: true,
   },
   plugins: [
     new HtmlWebpackPlugin({
@@ -33,12 +34,4 @@ module.exports = {
       },
     ],
   },
-  devServer: {
-    static: {
-      directory: path.join(__dirname, 'public'),
-    },
-    compress: true,
-    port: 9000,
-  },
-  mode: 'development',
 };
